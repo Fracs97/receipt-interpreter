@@ -7,7 +7,7 @@ load_dotenv()
 
 PROJECT_NAME = os.getenv('PROJECT_NAME')
 
-def ocr_summarize(image_bytes):
+def ocr_summarize(image_bytes, categories):
     # 1. Initialize Vertex AI
     # Project ID: receipt-interepreter-497814
     vertexai.init(project=PROJECT_NAME, location="us-central1")
@@ -26,15 +26,18 @@ def ocr_summarize(image_bytes):
     # 4. Create the multimodal prompt
     #I should add a expenditure categorization after (the user will provide the categories,
     #and gemini will try to fit the expense inside one of them)
-    prompt = """
+    prompt = f"""
     Examine this receipt image. 
-    Extract the total spent amount, currency, and date of purchase.
-    Return the data strictly in JSON format with the headers date, currency, amount.
+    Extract the expense category, total spent amount, currency, and date of purchase.
+    Try to fit the expense in one of the following categories: {categories}, but if it fails,
+    categorize it as "Others".
+    Return the data strictly in JSON format with the headers date, category, currency, amount.
+    No text elements outside of the curly brackets.
     """
 
     # 5. Generate the interpretation in one step
     response = model.generate_content([prompt, image_part])
 
-    print(response.text)
+    return response.text
 
 

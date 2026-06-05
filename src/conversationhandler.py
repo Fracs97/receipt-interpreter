@@ -17,7 +17,9 @@ bot.
 import logging
 import os
 from dotenv import load_dotenv
-from src.google_api import ocr_summarize
+from google_api import ocr_summarize
+import json
+from datetime import datetime
 
 load_dotenv()
 
@@ -63,7 +65,7 @@ async def category(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['categories'].append({'name': update.message.text, 'budget': None})
     user = update.message.from_user
     logger.info("Category chosen by of %s: %s", user.first_name, update.message.text)
-    keyboard = [['YES','NO']]
+    keyboard = [['Yes','No']]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
 
     await update.message.reply_text("Alright, do you wish to set a budget value for that?", reply_markup = reply_markup)
@@ -74,11 +76,11 @@ async def budget_flow_decide(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """Decides where to direct the user concerning budget value"""
     logger.info("User answered %s", update.message.text)
 
-    if update.message.text == 'YES':
+    if update.message.text == 'Yes':
         await update.message.reply_text("How much?")
         return SET_BUDGET
-    elif update.message.text == 'NO':
-        keyboard = [['YES','NO']]
+    elif update.message.text == 'No':
+        keyboard = [['Yes','No']]
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
 
         await update.message.reply_text("Want to setup another category?", reply_markup = reply_markup)
@@ -91,7 +93,7 @@ async def set_budget(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['categories'][-1]['budget'] = update.message.text
     user = update.message.from_user
     logger.info("Budget value typed by %s: %s", user.first_name, update.message.text)
-    keyboard = [['YES','NO']]
+    keyboard = [['Yes','No']]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
 
     await update.message.reply_text("Want to setup another category?", reply_markup = reply_markup)
@@ -100,10 +102,10 @@ async def set_budget(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def category_flow_decide(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Decides where to direct the user concerning category registry"""
-    if update.message.text == 'YES':
+    if update.message.text == 'Yes':
         await update.message.reply_text("What's the name of the category?")
         return CATEGORY
-    elif update.message.text == 'NO':
+    elif update.message.text == 'No':
         await update.message.reply_text('Your budget summary:')
         for category in context.user_data['categories']:
             if category['budget'] is None:
@@ -117,12 +119,16 @@ async def category_flow_decide(update: Update, context: ContextTypes.DEFAULT_TYP
 async def receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Analyzes the receipt photo and returns summary"""
     receipt_file = await update.message.photo[-1].get_file()
-    image_bytes = await receipt_file.download_as_bytearray()
+    image_bytes = bytes(await receipt_file.download_as_bytearray())
     await update.message.reply_text(
-        "Analyzing rececipt data..."
+        "Analyzing receipt data..."
     )
-    #call google api here
-    ocr_summarize(image_bytes)
+    response = ocr_summarize(image_bytes, [x['name'] for x in context.user_data['categories']]).replace('`','').replace('json','')
+    logger.info(response)
+    response_json = json.loads(response)
+    if response_json['date'] is None:
+        response_json['date'] = str(datetime.today().strftime("%m/%d/%Y"))
+    await update.message.reply_text(f'Date: {response_json['date']} | Category: {response_json['category']} | Total spent: {response_json['currency']}{response_json['amount']}')
     return RECEIPT
 
 
@@ -136,9 +142,9 @@ def main() -> None:
         entry_points=[CommandHandler("start", start)],
         states={
             CATEGORY: [MessageHandler(filters.TEXT & ~filters.COMMAND, category)],
-            BUDGET_FLOW_DECIDE: [MessageHandler(filters.Regex("(?i)^(YES|NO)$"), budget_flow_decide)],
+            BUDGET_FLOW_DECIDE: [MessageHandler(filters.Regex("(?i)^(Yes|No)$"), budget_flow_decide)],
             SET_BUDGET: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_budget)],
-            CATEGORY_FLOW_DECIDE: [MessageHandler(filters.Regex("(?i)^(YES|NO)$"), category_flow_decide)],
+            CATEGORY_FLOW_DECIDE: [MessageHandler(filters.Regex("(?i)^(Yes|No)$"), category_flow_decide)],
             RECEIPT: [MessageHandler(filters.PHOTO, receipt)]},
             fallbacks = [])
 
