@@ -17,6 +17,7 @@ bot.
 import logging
 import os
 from dotenv import load_dotenv
+from src.google_api import ocr_summarize
 
 load_dotenv()
 
@@ -56,7 +57,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def category(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the name of the expense category"""
-    context.user_date['category_name'] = update.message.text
+    if 'categories' not in context.user_data:
+        context.user_data['categories'] = []
+    #adding category to context with no budget at first
+    context.user_data['categories'].append({'name': update.message.text, 'budget': None})
     user = update.message.from_user
     logger.info("Category chosen by of %s: %s", user.first_name, update.message.text)
     keyboard = [['YES','NO']]
@@ -84,7 +88,7 @@ async def budget_flow_decide(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def set_budget(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the budget value for given category"""
-    context.user_date['budget_value'] = update.message.text
+    context.user_data['categories'][-1]['budget'] = update.message.text
     user = update.message.from_user
     logger.info("Budget value typed by %s: %s", user.first_name, update.message.text)
     keyboard = [['YES','NO']]
@@ -100,6 +104,12 @@ async def category_flow_decide(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.message.reply_text("What's the name of the category?")
         return CATEGORY
     elif update.message.text == 'NO':
+        await update.message.reply_text('Your budget summary:')
+        for category in context.user_data['categories']:
+            if category['budget'] is None:
+                await update.message.reply_text(f"Category: {category['name']} | No Budget.")
+            else:
+                await update.message.reply_text(f"Category: {category['name']} | Budget: U${category['budget']}.")
         await update.message.reply_text("Alright! Feel free to send a receipt whenever you want and I'll save the total value and tag it in the proper category.")
         return RECEIPT
 
@@ -107,12 +117,12 @@ async def category_flow_decide(update: Update, context: ContextTypes.DEFAULT_TYP
 async def receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Analyzes the receipt photo and returns summary"""
     receipt_file = await update.message.photo[-1].get_file()
-    await receipt_file.download_to_drive("receipt.jpg")
+    image_bytes = await receipt_file.download_as_bytearray()
     await update.message.reply_text(
         "Analyzing rececipt data..."
     )
     #call google api here
-
+    ocr_summarize(image_bytes)
     return RECEIPT
 
 
@@ -129,7 +139,8 @@ def main() -> None:
             BUDGET_FLOW_DECIDE: [MessageHandler(filters.Regex("(?i)^(YES|NO)$"), budget_flow_decide)],
             SET_BUDGET: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_budget)],
             CATEGORY_FLOW_DECIDE: [MessageHandler(filters.Regex("(?i)^(YES|NO)$"), category_flow_decide)],
-            RECEIPT: [MessageHandler(filters.PHOTO, receipt)]})
+            RECEIPT: [MessageHandler(filters.PHOTO, receipt)]},
+            fallbacks = [])
 
     application.add_handler(conv_handler)
 
