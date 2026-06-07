@@ -32,6 +32,7 @@ numpy==2.4.6
 packaging==26.2
 proto-plus==1.28.0
 protobuf==5.29.6
+psycopg2==2.9.12
 pyasn1==0.6.3
 pyasn1_modules==0.4.2
 pycparser==3.0
@@ -39,7 +40,7 @@ pydantic==2.13.4
 pydantic_core==2.46.4
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
-python-telegram-bot==13.12
+python-telegram-bot==22.7
 pytz==2026.2
 requests==2.34.2
 setuptools==82.0.1

@@ -1,9 +1,9 @@
 import uuid
-from sqlalchemy import TIMESTAMP, Boolean, Column, ForeignKey, Numeric, String
+from sqlalchemy import TIMESTAMP, Column, ForeignKey, Numeric, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from app.database import Base
+from database import Base
 
 class User(Base):
     __tablename__ = 'users'

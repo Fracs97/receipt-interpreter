@@ -20,6 +20,8 @@ from dotenv import load_dotenv
 from google_api import ocr_summarize
 import json
 from datetime import datetime
+from database import get_db
+from models import User, Category, Receipt
 
 load_dotenv()
 
@@ -50,6 +52,12 @@ CATEGORY,BUDGET_FLOW_DECIDE, SET_BUDGET, CATEGORY_FLOW_DECIDE, RECEIPT = range(5
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Starts the conversation and asks the user about their gender."""
     user = update.effective_user
+    #Saving user into User table if not already present in database
+    with get_db() as db:
+        if db.query(User).filter(User.id == str(user.id)).first() is None:
+            new_user = User(id = str(user.id))
+            db.add(new_user)
+            db.commit()
     await update.message.reply_text(
         f'Hello {user.first_name}, welcome to your expense tracker.')
     await update.message.reply_text("Let's start by setting up your expense categories.")
