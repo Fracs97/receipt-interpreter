@@ -67,16 +67,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def category(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the name of the expense category"""
+    #Checking if category already exists in the database for that user
+    with get_db() as db:
+        if (db.query(Category).filter(Category.user_id == str(update.effective_user.id)).filter(
+                                      Category.category_name == update.message.text)).first() is not None:
+            await update.message.reply_text("You have already registered that category.")
+            await update.message.reply_text("What's the name of the new category?")
+            return CATEGORY
     if 'categories' not in context.user_data:
         context.user_data['categories'] = []
+
     #adding category to context with no budget at first
     context.user_data['categories'].append({'name': update.message.text, 'budget': None})
     user = update.message.from_user
-    logger.info("Category chosen by of %s: %s", user.first_name, update.message.text)
+    logger.info("Category chosen by %s: %s", user.first_name, update.message.text)
     keyboard = [['Yes','No']]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
 
-    await update.message.reply_text("Alright, do you wish to set a budget value for that?", reply_markup = reply_markup)
+    await update.message.reply_text("Alright, do you wish to set a budget value for that in U$?", reply_markup = reply_markup)
         
     return BUDGET_FLOW_DECIDE
 
@@ -88,6 +96,15 @@ async def budget_flow_decide(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text("How much?")
         return SET_BUDGET
     elif update.message.text == 'No':
+        #saving category with no budget in categories table
+        user = update.effective_user
+        with get_db() as db:
+            new_category = Category(user_id = str(user.id), 
+                                    category_name = context.user_data['categories'][-1]['name'].capitalize())
+            
+            db.add(new_category)
+            db.commit()
+
         keyboard = [['Yes','No']]
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
 
@@ -98,8 +115,17 @@ async def budget_flow_decide(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def set_budget(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the budget value for given category"""
-    context.user_data['categories'][-1]['budget'] = update.message.text
-    user = update.message.from_user
+    #context.user_data['categories'][-1]['budget'] = update.message.text
+    user = update.effective_user
+    #saving category with budget in categories table
+    with get_db() as db:
+            new_category = Category(user_id = str(user.id), 
+                                    category_name = context.user_data['categories'][-1]['name'].capitalize(),
+                                    budget = float(update.message.text))
+            
+            db.add(new_category)
+            db.commit()
+
     logger.info("Budget value typed by %s: %s", user.first_name, update.message.text)
     keyboard = [['Yes','No']]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
@@ -115,11 +141,13 @@ async def category_flow_decide(update: Update, context: ContextTypes.DEFAULT_TYP
         return CATEGORY
     elif update.message.text == 'No':
         await update.message.reply_text('Your budget summary:')
-        for category in context.user_data['categories']:
-            if category['budget'] is None:
-                await update.message.reply_text(f"Category: {category['name']} | No Budget.")
+        with get_db() as db:
+            categories =  db.query(Category).filter(Category.user_id == str(update.effective_user.id)).all()
+        for category in categories:
+            if category.budget is None:
+                await update.message.reply_text(f"{category.category_name} | No Budget.")
             else:
-                await update.message.reply_text(f"Category: {category['name']} | Budget: U${category['budget']}.")
+                await update.message.reply_text(f"{category.category_name} | Budget: U${category.budget}")
         await update.message.reply_text("Alright! Feel free to send a receipt whenever you want and I'll save the total value and tag it in the proper category.")
         return RECEIPT
 
