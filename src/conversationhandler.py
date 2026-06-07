@@ -22,6 +22,7 @@ import json
 from datetime import datetime
 from database import get_db
 from models import User, Category, Receipt
+from sqlalchemy import func
 
 load_dotenv()
 
@@ -191,6 +192,23 @@ async def receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text(f'Date: {response_json['date']} | Category: {response_json['category']} | Total spent: {response_json['currency']}{response_json['amount']}')
     return RECEIPT
 
+async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Generates a summary for all expenses."""
+    user_id = str(update.effective_user.id)
+    await update.message.reply_text('Here is the summary of your expenses:')
+    #Retrieving and grouping receipt data
+    with get_db() as db:
+        if db.query(Receipt).filter(Receipt.user_id == user_id).all() is not None:
+            #joining receipts and categories table to recover category name and grouping expenses by category
+            summary = (db.query(Category.category_name, func.sum(Receipt.amount), Category.budget)
+                       .join(Category).filter(Receipt.user_id == user_id).group_by(Category.category_name, Category.budget)).all()
+            for cat_name, amount, budget in summary:
+                if budget is not None:
+                    await update.message.reply_text(f'{cat_name}: {amount}/{budget} ({(100*amount/budget):.1f}%)')
+                else:
+                    await update.message.reply_text(f'{cat_name}: {amount}')
+
+
 
 def main() -> None:
     """Run the bot."""
@@ -207,8 +225,10 @@ def main() -> None:
             CATEGORY_FLOW_DECIDE: [MessageHandler(filters.Regex("(?i)^(Yes|No)$"), category_flow_decide)],
             RECEIPT: [MessageHandler(filters.PHOTO, receipt)]},
             fallbacks = [])
+    
 
     application.add_handler(conv_handler)
+    application.add_handler(CommandHandler("summary", summary))
 
     # Run the bot until the user presses Ctrl-C
     application.run_polling(allowed_updates=Update.ALL_TYPES)
