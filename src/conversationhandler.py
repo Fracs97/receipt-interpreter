@@ -67,8 +67,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def category(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the name of the expense category"""
-    #Checking if category already exists in the database for that user
     with get_db() as db:
+        #Creating fixed category "Others"
+        if (db.query(Category).filter(Category.user_id == str(update.effective_user.id)).filter(
+                                      Category.category_name == 'Others')).first() is None:
+            others = Category(user_id = update.effective_user.id,
+                              category_name = 'Others')
+            db.add(others)
+            db.commit()
+        #Checking if category already exists in the database for that user
         if (db.query(Category).filter(Category.user_id == str(update.effective_user.id)).filter(
                                       Category.category_name == update.message.text)).first() is not None:
             await update.message.reply_text("You have already registered that category.")
@@ -84,7 +91,7 @@ async def category(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     keyboard = [['Yes','No']]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
 
-    await update.message.reply_text("Alright, do you wish to set a budget value for that in U$?", reply_markup = reply_markup)
+    await update.message.reply_text("Alright, do you wish to set a budget value for that?", reply_markup = reply_markup)
         
     return BUDGET_FLOW_DECIDE
 
@@ -159,11 +166,28 @@ async def receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text(
         "Analyzing receipt data..."
     )
-    response = ocr_summarize(image_bytes, [x['name'] for x in context.user_data['categories']]).replace('`','').replace('json','')
+    user_id = str(update.effective_user.id)
+    #checking all available categories to let gemini know how to categorize the expense
+    with get_db() as db:
+        categories = [x.category_name for x in db.query(Category).filter(Category.user_id == user_id).all()]
+
+    response = ocr_summarize(image_bytes, categories).replace('`','').replace('json','')
     logger.info(response)
     response_json = json.loads(response)
+    #if none of the categories match the one in the receipt, it is assigned to Others
     if response_json['date'] is None:
         response_json['date'] = str(datetime.today().strftime("%m/%d/%Y"))
+
+    #Saving receipt data into database
+    with get_db() as db:
+        cat_id = db.query(Category).filter(Category.user_id == user_id).filter(Category.category_name == response_json['category']).first().id
+        new_category = Receipt(user_id = str(user_id), 
+                                category_id = cat_id,
+                                expense_date = response_json['date'],
+                                amount = float(response_json['amount']))
+        
+        db.add(new_category)
+        db.commit()
     await update.message.reply_text(f'Date: {response_json['date']} | Category: {response_json['category']} | Total spent: {response_json['currency']}{response_json['amount']}')
     return RECEIPT
 

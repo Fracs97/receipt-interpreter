@@ -23,6 +23,8 @@ def ocr_summarize(image_bytes, categories):
         mime_type="image/jpeg"
     )
 
+    
+
     # 4. Create the multimodal prompt
     #I should add a expenditure categorization after (the user will provide the categories,
     #and gemini will try to fit the expense inside one of them)
