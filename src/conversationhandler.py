@@ -192,7 +192,7 @@ async def receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text(f'Date: {response_json['date']} | Category: {response_json['category']} | Total spent: {response_json['currency']}{response_json['amount']}')
     return RECEIPT
 
-async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Generates a summary for all expenses."""
     user_id = str(update.effective_user.id)
     await update.message.reply_text('Here is the summary of your expenses:')
@@ -207,6 +207,8 @@ async def summary(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     await update.message.reply_text(f'{cat_name}: {amount}/{budget} ({(100*amount/budget):.1f}%)')
                 else:
                     await update.message.reply_text(f'{cat_name}: {amount}')
+
+    return RECEIPT
 
 
 
@@ -223,12 +225,12 @@ def main() -> None:
             BUDGET_FLOW_DECIDE: [MessageHandler(filters.Regex("(?i)^(Yes|No)$"), budget_flow_decide)],
             SET_BUDGET: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_budget)],
             CATEGORY_FLOW_DECIDE: [MessageHandler(filters.Regex("(?i)^(Yes|No)$"), category_flow_decide)],
-            RECEIPT: [MessageHandler(filters.PHOTO, receipt)]},
+            RECEIPT: [MessageHandler(filters.PHOTO, receipt),
+                      CommandHandler("summary", summary)]},
             fallbacks = [])
     
 
     application.add_handler(conv_handler)
-    application.add_handler(CommandHandler("summary", summary))
 
     # Run the bot until the user presses Ctrl-C
     application.run_polling(allowed_updates=Update.ALL_TYPES)
