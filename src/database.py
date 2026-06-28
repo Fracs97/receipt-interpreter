@@ -1,7 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 import os
-from typing import Generator
 from dotenv import load_dotenv
 from contextlib import contextmanager
 

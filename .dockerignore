@@ -1,0 +1,5 @@
+.venv/
+.env
+.pyc
+__pycache__
+receipt-interepreter-497814-a4d3d8116b75.json

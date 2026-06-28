@@ -20,11 +20,13 @@ from dotenv import load_dotenv
 from google_api import ocr_summarize
 import json
 from datetime import datetime
-from database import get_db
+from database import get_db, engine, Base
 from models import User, Category, Receipt
 from sqlalchemy import func
 
 load_dotenv()
+
+Base.metadata.create_all(bind=engine)
 
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 
@@ -177,7 +179,7 @@ async def receipt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     response_json = json.loads(response)
     #if none of the categories match the one in the receipt, it is assigned to Others
     if response_json['date'] is None:
-        response_json['date'] = str(datetime.today().strftime("%m/%d/%Y"))
+        response_json['date'] = str(datetime.today().strftime("%Y/%m/%d"))
 
     #Saving receipt data into database
     with get_db() as db:

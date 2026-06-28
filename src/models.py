@@ -25,6 +25,8 @@ class Category(Base):
     user = relationship('User', back_populates = 'categories')
     receipts = relationship('Receipt', back_populates = 'category')
 
+#| 2026-06-26 20:44:54.534 UTC [76] ERROR:  date/time field value out of range: "14/06/2026" at character 185
+
 class Receipt(Base):
     __tablename__ = 'receipts'
 
