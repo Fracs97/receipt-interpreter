@@ -25,14 +25,22 @@ services:
         GOOGLE_APPLICATION_CREDENTIALS: /secrets/key.json
 
       volumes:
+      #bind mount linking local file containing google vertex ai authentication to the container
       - type: bind
-        source: ./receipt-interepreter-497814-a4d3d8116b75.json #bind mount linking local file containing google vertex ai authentication to the container
+        source: ./receipt-interepreter-497814-a4d3d8116b75.json
         target: /secrets/key.json
         read_only: true
 
       depends_on: #makes sure that the app only starts after the db service
         db: 
           condition: service_healthy
+
+      develop: #enables hot realoading (source code gets refreshed and the service is restarted)
+        watch:
+          - action: sync+restart
+            path: ./src
+            target: /app/src
+
 
 volumes: #all named volumes must be declared at this level
   recdata:
