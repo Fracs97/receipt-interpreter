@@ -6,8 +6,11 @@ services:
       POSTGRES_PASSWORD: pwd
       POSTGRES_DB: rec-int
 
-    volumes: #creates a named volume for the data to persist even if the container gets deleted
-      - recdata:/var/lib/postgresql/data
+    volumes:
+      - type: volume
+        source: recdata #creates a named volume for the data to persist even if the container gets deleted
+        target: /var/lib/postgresql/data
+        
     healthcheck: #checks if the database is accepting connections
       test: ['CMD-SHELL', 'pg_isready -U user -d rec-int']
       interval: 5s
@@ -21,8 +24,11 @@ services:
         TELEGRAM_TOKEN: ${TELEGRAM_TOKEN}
         GOOGLE_APPLICATION_CREDENTIALS: /secrets/key.json
 
-      volumes: #bind mount linking local file containing google vertex ai authentication to the container
-        - ./receipt-interepreter-497814-a4d3d8116b75.json:/secrets/key.json:ro
+      volumes:
+      - type: bind
+        source: ./receipt-interepreter-497814-a4d3d8116b75.json #bind mount linking local file containing google vertex ai authentication to the container
+        target: /secrets/key.json
+        read_only: true
 
       depends_on: #makes sure that the app only starts after the db service
         db: 
